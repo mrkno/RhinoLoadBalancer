@@ -23,8 +23,5 @@ module.exports = {
 	loadBalancer: {
 		port: 3001
 	},
-	alerts: {
-		discord: ''
-	},
 	productName: 'UnicornLoadBalancer'
 };

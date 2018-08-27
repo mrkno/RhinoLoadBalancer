@@ -1,22 +1,14 @@
 const request = require('request');
-
-const Webhook = require("../core/discord");
 const config = require('../config');
 
 let serversStats = {};
 
 const sendAlertDead = (url) => {
-	if (config.alerts.discord) {
-		const Hook = new Webhook(config.alerts.discord);
-		Hook.err(config.productName, "The server `"+url+"` is now unavailable.");
-	}
+
 };
 
 const sendAlertAlive = (url) => {
-	if (config.alerts.discord) {
-		const Hook = new Webhook(config.alerts.discord);
-		Hook.success(config.productName, "The server `"+url+"` is now available.");		
-	}
+
 };
 
 const getInformations = () => {

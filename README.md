@@ -32,7 +32,6 @@ This software is a part of __UnicornTranscoder__ project, it's the LoadBalancer 
 | >sessions         | Where Plex store sessions (to grab external subtitles)       |
 | >database         | Plex Media Server Database                                   |
 | loadBalancer.port | Port UnicornLoadBalancer will listen                         |
-| alerts.discord    | Discord Webhook to notify unavailable UnicornTranscoder      |
 
 * Configure Plex Media Server access Address
   * In Settings -> Server -> Network
