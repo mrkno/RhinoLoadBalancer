@@ -1,5 +1,5 @@
 const rangeCheck = require('range_check');
-const config = require('../config');
+const loadConfig = require('../utils/config');
 const stats = require('../core/stats');
 
 class ServerManager {
@@ -7,6 +7,7 @@ class ServerManager {
 		this._cacheSession = {};
 		this._sessions = {};
 		this._stoppedSessions = {};
+		this._config = loadConfig();
 	}
 
 	saveSession(req) {
@@ -72,25 +73,25 @@ class ServerManager {
 	}
 
 	chooseServer(session, ip = false) {
-		if (config.preprod.enabled && ip) {
-			if (config.preprod.devIps.some(p => rangeCheck.inRange(ip, p))) {
-				return config.preprod.server;
+		if (this._config.preprod.enabled && ip) {
+			if (this._config.preprod.devIps.some(p => rangeCheck.inRange(ip, p))) {
+				return this._config.preprod.server;
 			}
 			else {
-				return `${config.plex.host}:${config.plex.port}`;
+				return `${this._config.plex.host}:${this._config.plex.port}`;
 			}
 		}
 
-		let count = config.cluster.length;
+		let count = this._config.cluster.length;
 		if (count == 0)
 			return (false);
 		if (typeof (this._sessions[session]) !== void(0) &&
-			config.cluster.indexOf(this._sessions[session]) != -1 &&
+			this._config.cluster.indexOf(this._sessions[session]) != -1 &&
 			stats[this._sessions[session]]) {
 			return (this._sessions[session]);
 		}
 
-		let sortedServers = config.cluster.sort((url) => { return (this.calculateServerLoad(stats[url])); });
+		let sortedServers = this._config.cluster.sort((url) => { return (this.calculateServerLoad(stats[url])); });
 
 		this._sessions[session] = sortedServers[0];
 

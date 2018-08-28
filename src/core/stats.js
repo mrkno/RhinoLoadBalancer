@@ -1,5 +1,7 @@
 const request = require('request');
-const config = require('../config');
+const loadConfig = require('../utils/config');
+
+const config = loadConfig();
 
 let serversStats = {};
 
