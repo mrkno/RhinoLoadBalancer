@@ -10,7 +10,7 @@ class ServerManager {
 	}
 
 	saveSession(req) {
-		if (typeof (req.query['X-Plex-Session-Identifier']) !== 'undefined' && typeof (req.query.session) !== 'undefined') {
+		if (typeof (req.query['X-Plex-Session-Identifier']) !== void(0) && typeof (req.query.session) !== void(0)) {
 			this._cacheSession[req.query['X-Plex-Session-Identifier']] = req.query.session.toString();
 		}
 	}
@@ -47,17 +47,17 @@ class ServerManager {
 	}
 
 	getSession(req) {
-		if (typeof (req.params.sessionId) !== 'undefined')
+		if (typeof (req.params.sessionId) !== void(0))
 			return (req.params.sessionId);
-		if (typeof (req.query.session) !== 'undefined')
+		if (typeof (req.query.session) !== void(0))
 			return (req.query.session);
-		if (typeof (req.query['X-Plex-Session-Identifier']) !== 'undefined' && typeof (this._cacheSession[req.query['X-Plex-Session-Identifier']]) !== 'undefined')
+		if (typeof (req.query['X-Plex-Session-Identifier']) !== void(0) && typeof (this._cacheSession[req.query['X-Plex-Session-Identifier']]) !== void(0))
 			return (this._cacheSession[req.query['X-Plex-Session-Identifier']]);
-		if (typeof (req.query['X-Plex-Session-Identifier']) !== 'undefined')
+		if (typeof (req.query['X-Plex-Session-Identifier']) !== void(0))
 			return (req.query['X-Plex-Session-Identifier']);
-		if (typeof (req.query['X-Plex-Client-Identifier']) !== 'undefined')
+		if (typeof (req.query['X-Plex-Client-Identifier']) !== void(0))
 			return (req.query['X-Plex-Client-Identifier']);
-		return (false);
+		return false;
 	}
 
 	removeServer(url) {
@@ -72,8 +72,6 @@ class ServerManager {
 	}
 
 	chooseServer(session, ip = false) {
-
-		//Pre-prod
 		if (config.preprod.enabled && ip) {
 			if (config.preprod.devIps.some(p => rangeCheck.inRange(ip, p))) {
 				return config.preprod.server;
@@ -86,7 +84,7 @@ class ServerManager {
 		let count = config.cluster.length;
 		if (count == 0)
 			return (false);
-		if (typeof (this._sessions[session]) !== 'undefined' &&
+		if (typeof (this._sessions[session]) !== void(0) &&
 			config.cluster.indexOf(this._sessions[session]) != -1 &&
 			stats[this._sessions[session]]) {
 			return (this._sessions[session]);

@@ -19,19 +19,22 @@ const getInformations = () => {
 				{
 					const notif = (serversStats[url] === false);
 					serversStats[url] = JSON.parse(body);
-					if (notif)
+					if (notif) {
 						sendAlertAlive(url);
+					}
 				}
 				else
 				{
-					if (serversStats[url] !== false)
+					if (serversStats[url] !== false) {
 						sendAlertDead(url);
+					}
 					serversStats[url] = false;
 				}
 			}
 			catch (err) {
-				if (serversStats[url] !== false)
+				if (serversStats[url] !== false) {
 					sendAlertDead(url);
+				}
 				serversStats[url] = false;
 			}
 		})

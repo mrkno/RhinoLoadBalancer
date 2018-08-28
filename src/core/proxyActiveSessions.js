@@ -1,13 +1,11 @@
-/**
- * Created by Maxime Baconnais on 23/06/2018.
- */
-
 const httpProxy = require('http-proxy');
-const config = require('../config');
+const loadConfig = require('../utils/config');
 const serverManager = require('./serverManager');
 const stats = require('./stats');
 
-let proxy = httpProxy.createProxyServer({
+const config = loadConfig();
+
+const proxy = httpProxy.createProxyServer({
 	target: {
 		host: config.plex.host,
 		port: config.plex.port
@@ -15,7 +13,7 @@ let proxy = httpProxy.createProxyServer({
     selfHandleResponse: true
 });
 
-proxy.on('proxyRes', (proxyRes, req, res) => {
+proxy.on('proxyRes', (proxyRes, _, res) => {
 	let body = new Buffer('');
 	proxyRes.on('data', (data) => {
 		body = Buffer.concat([body, data]);
@@ -57,7 +55,7 @@ proxy.on('proxyRes', (proxyRes, req, res) => {
 	});
 });
 
-proxy.on('error', (err, req, res) => {
+proxy.on('error', (err, _, res) => {
 	console.log('error', err);
 	res.writeHead(404, {});
 	res.end('Plex not respond in time, proxy request fails');

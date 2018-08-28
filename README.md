@@ -1,8 +1,8 @@
-## UnicornLoadBalancer
+## RhinoLoadBalancer
 
-This software is a part of __UnicornTranscoder__ project, it's the LoadBalancer that will catch Plex requests and send them to a __UnicornTranscoder__.
+This software is a **heavily modified** version the of __UnicornTranscoder__ project, it's the LoadBalancer that will catch Plex requests and send them to a __UnicornTranscoder__.
 
-## UnicornTranscoder Project
+## Origional UnicornTranscoder Project
 
 * [UnicornTranscoder](https://github.com/UnicornTranscoder/UnicornTranscoder)
 * [UnicornLoadBalancer](https://github.com/UnicornTranscoder/UnicornLoadBalancer)
@@ -12,35 +12,23 @@ This software is a part of __UnicornTranscoder__ project, it's the LoadBalancer 
 
 * Plex Media Server
 * NodeJS
-* npm
+* yarn
 
 ## Setup
 
 ### 1. Installation
 
-* Clone the repository
-* Install with `npm install`
-* Edit the configuration
-
-| Variable          | Description                                                  |
-| ----------------- | ------------------------------------------------------------ |
-| cluster           | Array of UnicornTranscoder Servers in the cluster            |
-| preprod           | If enabled, will filter on IP and send to the configured UnicornTranscoder, it allows to have a UnicornTranscoder server for developement without impacting users on the Plex Media Server |
-| plex              | Configuration of the Plex Media server                       |
-| >host             | Address to join the Plex Media Server                        |
-| >port             | Port of the Plex Media server                                |
-| >sessions         | Where Plex store sessions (to grab external subtitles)       |
-| >database         | Plex Media Server Database                                   |
-| loadBalancer.port | Port UnicornLoadBalancer will listen                         |
-
-* Configure Plex Media Server access Address
+1. Clone the repository
+2. Install with `yarn`
+3. Create the configuration in a file called `config.json`. See `config.example.json` for details on config items.
+4. Configure Plex Media Server access Address
   * In Settings -> Server -> Network
   * Set `Custom server access URLs` to the address to access the UnicornLoadBalancer
-* Run with npm start
+5. Run with `yarn start`
 
 ## 2. Notes
 
-All the requests to this Plex Media Server should pass by the UnicornLoadBalancer, if someone reach the server directly without passing through UnicornLoadBalancer he will not be able to start a stream, since FFMPEG binary has been replaced. It is recomended to setup a nginx reverse proxy in front to setup a SSL certificate and to have an iptable to direct access to the users on port 32400.
+All the requests to this Plex Media Server should pass by the RhinoLoadBalancer, if someone reach the server directly without passing through RhinoLoadBalancer he will not be able to start a stream, since FFMPEG binary has been replaced. It is recomended to setup a nginx reverse proxy in front to setup a SSL certificate and to have an iptable to direct access to the users on port 32400.
 
 ```
 #Example iptable

@@ -12,7 +12,6 @@
     "http-proxy": "^1.17.0",
     "range_check": "^1.4.0",
     "request": "^2.88.0",
-    "require-reload": "^0.2.2",
     "sqlite3": "^4.0.2"
   }
 }

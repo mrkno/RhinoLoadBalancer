@@ -22,5 +22,3 @@ app.use('/', routes);
 
 // Export app
 module.exports = app;
-
-
