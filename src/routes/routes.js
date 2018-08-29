@@ -14,37 +14,37 @@ const getIp = require('../utils/getIp');
 
 const logRoutes = debug('routes');
 
-class Routes extends Router {
+class Routes {
 	constructor() {
-		super();
+		this._router = new Router();
 		this._config = loadConfig();
 		this._registerRoutes();
 	}
 
 	_registerRoutes() {
-		this.get('/api/reload', this.reloadConfig.bind(this));
-		this.get('/api/scores', this.scores.bind(this));
-		this.get('/api/stats', this.stats.bind(this));
-		this.get('/api/pathname/:downloadid', this.downloadId.bind(this));
-		this.all('/api/plex/*', this.direct.bind(this));
-		this.get('/video/:/transcode/universal/dash/:sessionId/:streamId/initial.mp4', redirect);
-		this.get('/video/:/transcode/universal/dash/:sessionId/:streamId/:partId.m4s', redirect);
-		this.get('/video/:/transcode/universal/start', this.start.bind(this));
-		this.get('/video/:/transcode/universal/start.m3u8', this.start.bind(this));
-		this.get('/video/:/transcode/universal/start.mpd', this.startMpd.bind(this));
-		this.get('/video/:/transcode/universal/subtitles', redirect);
-		this.get('/video/:/transcode/universal/session/:sessionId/base/index.m3u8', redirect);
-		this.get('/video/:/transcode/universal/session/:sessionId/base-x-mc/index.m3u8', redirect);
-		this.get('/video/:/transcode/universal/session/:sessionId/:fileType/:partId.ts', redirect);
-		this.get('/video/:/transcode/universal/session/:sessionId/:fileType/:partId.vtt', redirect);
-		this.get('/video/:/transcode/universal/stop', this.stop.bind(this));
-		this.get('/video/:/transcode/universal/ping', this.ping.bind(this));
-		this.get('/:/timeline', this.timeline.bind(this));
-		this.get('/status/sessions/terminate', this.terminate.bind(this));
-		this.get('/library/parts/:id1/:id2/file.*', redirect);
-		// this.get('/status/sessions', this.sessions.bind(this));
-		// this.get('/', this.proxy.bind(this));
-		this.all('*', this.catchAll.bind(this));
+		this._router.get('/api/reload', this.reloadConfig.bind(this));
+		this._router.get('/api/scores', this.scores.bind(this));
+		this._router.get('/api/stats', this.stats.bind(this));
+		this._router.get('/api/pathname/:downloadid', this.downloadId.bind(this));
+		this._router.all('/api/plex/*', this.direct.bind(this));
+		this._router.get('/video/:/transcode/universal/dash/:sessionId/:streamId/initial.mp4', redirect);
+		this._router.get('/video/:/transcode/universal/dash/:sessionId/:streamId/:partId.m4s', redirect);
+		this._router.get('/video/:/transcode/universal/start', this.start.bind(this));
+		this._router.get('/video/:/transcode/universal/start.m3u8', this.start.bind(this));
+		this._router.get('/video/:/transcode/universal/start.mpd', this.startMpd.bind(this));
+		this._router.get('/video/:/transcode/universal/subtitles', redirect);
+		this._router.get('/video/:/transcode/universal/session/:sessionId/base/index.m3u8', redirect);
+		this._router.get('/video/:/transcode/universal/session/:sessionId/base-x-mc/index.m3u8', redirect);
+		this._router.get('/video/:/transcode/universal/session/:sessionId/:fileType/:partId.ts', redirect);
+		this._router.get('/video/:/transcode/universal/session/:sessionId/:fileType/:partId.vtt', redirect);
+		this._router.get('/video/:/transcode/universal/stop', this.stop.bind(this));
+		this._router.get('/video/:/transcode/universal/ping', this.ping.bind(this));
+		this._router.get('/:/timeline', this.timeline.bind(this));
+		this._router.get('/status/sessions/terminate', this.terminate.bind(this));
+		this._router.get('/library/parts/:id1/:id2/file.*', redirect);
+		// this._router.get('/status/sessions', this.sessions.bind(this));
+		// this._router.get('/', this.proxy.bind(this));
+		this._router.all('*', this.catchAll.bind(this));
 	}
 
 	_getMap(res, pred = p => p) {
@@ -226,6 +226,11 @@ class Routes extends Router {
 	catchAll(req, res) {
 		proxy.web(req, res);
 	}
+
+	toRoutes() {
+		return this._router;
+	}
 }
 
-module.exports = new Routes();
+const router = new Routes();
+module.exports = router.toRoutes();

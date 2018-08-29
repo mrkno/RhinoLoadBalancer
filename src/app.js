@@ -5,7 +5,7 @@ const cors = require('cors');
 // Customs requires
 const routes = require('./routes/routes');
 const proxy = require('./core/proxy');
-const config = require('./config');
+const loadConfig = require('./utils/config');
 const stats = require('./core/stats');
 
 // Init Express App
@@ -15,7 +15,7 @@ const app = express();
 app.use(cors());
 
 // Sessions files
-app.use('/api/sessions', express.static(config.plex.sessions));
+app.use('/api/sessions', express.static(loadConfig().plex.sessions));
 
 // Default routes
 app.use('/', routes);

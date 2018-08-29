@@ -11,13 +11,15 @@ class ProxyBase {
 			},
 			selfHandleResponse: selfHandleResponse
 		});
-		proxy.on('error', this._proxy);
+		this._proxy.on('error', this.onError);
+		this.ws = this._proxy.ws.bind(this._proxy);
+		this.web = this._proxy.web.bind(this._proxy);
 	}
 
 	onError(_1, _2, res) {
 		res.writeHead(404, {});
-		res.end('Plex not respond in time, proxy request fails');
+		res.end('Plex did not respond in time, request failure');
 	}
 }
 
-module.exports = ProxyBase;
+module.exports = new ProxyBase();
