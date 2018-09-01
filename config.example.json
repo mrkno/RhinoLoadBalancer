@@ -1,11 +1,8 @@
 {
 	"loadBalancer": {
-		"port": 3240
+		"port": 3240,
+		"heatbeatTimeout": 5000
 	},
-	"cluster": [
-		"https://transcoder1.myplex.com",
-		"https://transcoder2.myplex.com"
-	],
 	"plex": {
 		"host": "127.0.0.1",
 		"port": 32400,

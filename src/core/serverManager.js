@@ -1,38 +1,15 @@
-const loadConfig = require('../utils/config');
-const stats = require('../core/stats');
-
 class ServerManager {
-	constructor() {
+	constructor(transcoderStats) {
 		this._cacheSession = {};
 		this._sessions = {};
 		this._stoppedSessions = {};
-		this._config = loadConfig();
+		this._transcoders = transcoderStats;
 	}
 
 	saveSession(req) {
 		if (typeof (req.query['X-Plex-Session-Identifier']) !== void(0) && typeof (req.query.session) !== void(0)) {
 			this._cacheSession[req.query['X-Plex-Session-Identifier']] = req.query.session.toString();
 		}
-	}
-
-	calculateServerLoad(stats) {
-		if (!stats) {
-			return 1000;
-		}
-		let load = stats.transcoding || 0;
-		if (stats.codecs.hevc) {
-			load += stats.codecs.hevc * 1.5;
-		}		
-		if (stats.config && stats.sessions >= stats.config.preferredMaxSessions) {
-			load += 2.5;
-		}
-		if (stats.config && stats.transcoding >= stats.config.preferredMaxTranscodes) {
-			load += 5;
-		}
-		if (stats.config && stats.downloads >= stats.config.preferredMaxDownloads) {
-			load += 1;
-		}
-		return load;
 	}
 
 	getSession(req) {
@@ -67,18 +44,15 @@ class ServerManager {
 	}
 
 	chooseServer(session) {
-		if (this._config.cluster.length === 0) {
+		if (this._transcoders.any()) {
 			return false;
 		}
-		else if (typeof(this._sessions[session]) !== void(0) &&
-				this._config.cluster.indexOf(this._sessions[session]) != -1 &&
-				stats[this._sessions[session]]) {
+		else if (this._sessions[session] !== void(0) && this._transcoders.exists(this._sessions[session])) {
 			return this._sessions[session];
 		}
-
-		const sortedServers = this._config.cluster.sort(url => this.calculateServerLoad(stats[url]));
-		this._sessions[session] = sortedServers[0];
-		return sortedServers[0];
+		const assignedServer = this._transcoders.assignServer();
+		this._sessions[session] = assignedServer;
+		return assignedServer;
 	}
 
 	removeSession(session) {
@@ -87,4 +61,4 @@ class ServerManager {
 	}
 }
 
-module.exports = new ServerManager();
+module.exports = ServerManager;

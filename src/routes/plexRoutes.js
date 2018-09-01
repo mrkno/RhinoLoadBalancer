@@ -1,13 +1,11 @@
 const { Router } = require('express');
 const request = require('request');
 const httpProxy = require('http-proxy');
-const sqlite3 = require('sqlite3').verbose();
-const serverManager = require('../core/serverManager');
-const stats = require('../core/stats');
 
-class Routes {
-	constructor(config) {
+class PlexRoutes {
+	constructor(config, serverManager) {
 		this._router = new Router();
+		this._serverManager = serverManager;
 		this._config = config;
 		this._registerRoutes();
 		this._setupProxies();
@@ -29,7 +27,7 @@ class Routes {
 			proxyRes.on('end', () => {
 				body = body.toString();
 				res.header('Content-Type', 'text/xml;charset=utf-8');
-				res.send(body.replace('<MediaContainer ', `<MediaContainer terminationCode="2006" terminationText="${serverManager.stoppedSessions[req.query['X-Plex-Session-Identifier']].replace('"', '&#34;')}" `));
+				res.send(body.replace('<MediaContainer ', `<MediaContainer terminationCode="2006" terminationText="${this._serverManager.stoppedSessions[req.query['X-Plex-Session-Identifier']].replace('"', '&#34;')}" `));
 			});
 		})
 		interceptProxy.on('error', this._onProxyError);
@@ -52,10 +50,7 @@ class Routes {
 		res.end('Plex did not respond in time, request failure');
 	}
 
-	_registerRoutes() {
-		this._router.get('/api/scores', this.scores.bind(this));
-		this._router.get('/api/stats', this.stats.bind(this));
-		this._router.get('/api/pathname/:downloadid', this.downloadId.bind(this));
+	_registerRoutes() {	
 		this._router.get('/video/:/transcode/universal/dash/:sessionId/:streamId/initial.mp4', this._redirect);
 		this._router.get('/video/:/transcode/universal/dash/:sessionId/:streamId/:partId.m4s', this._redirect);
 		this._router.get('/video/:/transcode/universal/start', this.start.bind(this));
@@ -73,105 +68,71 @@ class Routes {
 		this._router.get('/library/parts/:id1/:id2/file.*', this._redirect);
 	}
 
-	_getMap(res, pred = p => p) {
-		let output = {};
-		for (let node of this._config.cluster) {
-			output[node] = pred(stats[node]);
-		}
-		res.json(output);
-	}
-
 	_redirect(req, res) {
-		const sessionId = serverManager.getSession(req);
-		const serverUrl = serverManager.chooseServer(sessionId);
+		const sessionId = this._serverManager.getSession(req);
+		const serverUrl = this._serverManager.chooseServer(sessionId);
 		res.status(302).location(serverUrl + req.url);
-	}
-
-	scores(_, res) {
-		this._getMap(res, c => serverManager.calculateServerLoad(c));
-	}
-	
-	stats(_, res) {
-		this._getMap(res);
-	}
-	
-	downloadId(req, res) {
-		try {
-			const db = new sqlite3.Database(this._config.plex.database);
-			db.get("SELECT * FROM media_parts WHERE id=? LIMIT 0,1", req.params.downloadid, (err, row) => {
-				if (!err && row && row.file) {
-					res.json(row);
-				}
-				else {
-					res.status(404).send('File not found in Plex Database');
-				}
-				db.close();
-			});
-		}
-		catch (err) {
-			res.status(404).send('File not found in Plex Database');
-		}
 	}
 
 	startMpd(req, res) {	
 		let sessionId = false;
 		if (req.query['X-Plex-Session-Identifier'] !== void(0)
-				&& serverManager.cacheSession[req.query['X-Plex-Session-Identifier']] !== void(0)) {
-			sessionId = serverManager.cacheSession[req.query['X-Plex-Session-Identifier']];
+				&& this._serverManager.cacheSession[req.query['X-Plex-Session-Identifier']] !== void(0)) {
+			sessionId = this._serverManager.cacheSession[req.query['X-Plex-Session-Identifier']];
 		}
 		
 		if (sessionId !== false) {
-			const serverUrl = serverManager.chooseServer(sessionId);
+			const serverUrl = this._serverManager.chooseServer(sessionId);
 			request(`${serverUrl}/video/:/transcode/universal/stop?session=${sessionId}`, () => {
-				serverManager.saveSession(req);
+				this._serverManager.saveSession(req);
 				this._redirect(req, res);
 			});
 		}
 		else {
-			serverManager.saveSession(req);
+			this._serverManager.saveSession(req);
 			this._redirect(req, res);
 		}
 	}
 
 	start(req, res) {
-		serverManager.saveSession(req);
+		this._serverManager.saveSession(req);
 		this._redirect(req, res);
 	}
 
 	stop(req, res) {		
-		const sessionId = serverManager.getSession(req);
-		const serverUrl = serverManager.chooseServer(sessionId);
+		const sessionId = this._serverManager.getSession(req);
+		const serverUrl = this._serverManager.chooseServer(sessionId);
 
 		request(`${serverUrl}/video/:/transcode/universal/stop?session=${sessionId}`);
 		
 		setTimeout(() => {
-			serverManager.removeSession(sessionId);
-			if (serverManager.stoppedSessions[req.query['X-Plex-Session-Identifier']] !== void(0)) {
-				delete serverManager.stoppedSessions[req.query['X-Plex-Session-Identifier']];
+			this._serverManager.removeSession(sessionId);
+			if (this._serverManager.stoppedSessions[req.query['X-Plex-Session-Identifier']] !== void(0)) {
+				delete this._serverManager.stoppedSessions[req.query['X-Plex-Session-Identifier']];
 			}
 		}, 1000);
 	}
 
 	ping(req, res) {
-		const sessionId = serverManager.getSession(req);
-		const serverUrl = serverManager.chooseServer(sessionId);
+		const sessionId = this._serverManager.getSession(req);
+		const serverUrl = this._serverManager.chooseServer(sessionId);
 		request(`${serverUrl}/video/:/transcode/universal/ping?session=${sessionId}`);
 	}
 
 	timeline(req, res) {
-		const sessionId = serverManager.getSession(req);
-		const serverUrl = serverManager.chooseServer(sessionId);
+		const sessionId = this._serverManager.getSession(req);
+		const serverUrl = this._serverManager.chooseServer(sessionId);
 		const customHandling = req.query['X-Plex-Session-Identifier'] !== void(0)
-			&& serverManager.stoppedSessions[req.query['X-Plex-Session-Identifier']] !== void(0);
+			&& this._serverManager.stoppedSessions[req.query['X-Plex-Session-Identifier']] !== void(0);
 		const proxy = customHandling ? this._interceptProxy : this._passthroughProxy;
 
 		if (req.query.state == 'stopped' || customHandling) {
 			proxy.web(req, res);
 			request(`${serverUrl}/video/:/transcode/universal/stop?session=${sessionId}`);			
 			setTimeout(() => {
-				serverManager.removeSession(sessionId);
-				if (serverManager.stoppedSessions[req.query['X-Plex-Session-Identifier']] !== void(0)) {
-					delete serverManager.stoppedSessions[req.query['X-Plex-Session-Identifier']];
+				this._serverManager.removeSession(sessionId);
+				if (this._serverManager.stoppedSessions[req.query['X-Plex-Session-Identifier']] !== void(0)) {
+					delete this._serverManager.stoppedSessions[req.query['X-Plex-Session-Identifier']];
 				}
 			}, 1000);
 		}
@@ -187,7 +148,7 @@ class Routes {
 		const sessionId = req.query.sessionId;
 		const reason = req.query.reason;
 		if (sessionId !== void(0) && reason !== void(0)) {
-			serverManager.forceStopStream(sessionId, reason);
+			this._serverManager.forceStopStream(sessionId, reason);
 		}
 	}
 
@@ -196,7 +157,7 @@ class Routes {
 	}
 }
 
-module.exports = config => {
-	const router = new Routes(config);
+module.exports = (config, serverManager) => {
+	const router = new PlexRoutes(config, serverManager);
 	return router.toRoutes();
 };
