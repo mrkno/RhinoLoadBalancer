@@ -1,34 +1,30 @@
 #!/usr/bin/env node
 
-const app = require('./app');
+const express = require('express');
+const cors = require('cors');
+const routes = require('./routes/routes');
 const loadConfig = require('./utils/config');
-const debug = require('debug');
-const http = require('http');
-const proxy = require('./core/proxy');
 
-const logServer = debug('server');
 const config = loadConfig();
+const app = express();
 
-app.set(config.loadBalancer.port)
-const server = http.createServer(app);
-
-server.listen(config.loadBalancer.port);
-
-server.on('error', error => {
-    if (error.syscall !== 'listen') {
-        throw error
+app.use((req, res, next) => {
+    const method = req.method && req.method.toUpperCase && req.method.toUpperCase();
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    if (method === 'OPTIONS') {
+        res.setHeader('Access-Control-Allow-Methods', 'GET,HEAD,PUT,PATCH,POST,DELETE');
+        res.setHeader('Vary', '*');
+        res.setHeader('Access-Control-Allow-Headers', req.headers['access-control-request-headers']);
+        res.statusCode = 204;
+        res.setHeader('Content-Length', '0');
+        res.end();
+    } else {
+        next();
     }
-    const bind = `${typeof(config.loadBalancer.port) === 'string' ? 'Pipe' : 'Port'} ${config.loadBalancer.port}`;
-    logServer(bind);
-    logServer(error.code);
-    logServer(error.stack);
-    process.exit(1);
 });
 
-server.on('listening', () => {
-    const addr = server.address();
-    const bind = typeof(addr) === 'string' ? `pipe ${addr}` : `port ${addr.port}`;
-    logServer(`Listening on ${bind}`);
-});
+app.use('/api/sessions', express.static(config.plex.sessions));
+app.use('/', routes(config));
 
-server.on('upgrade', proxy.ws);
+app.listen(config.loadBalancer.port,
+    () => console.log(`Listening on port ${config.loadBalancer.port}`));

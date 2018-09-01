@@ -4,47 +4,78 @@ const httpProxy = require('http-proxy');
 const debug = require('debug');
 const sqlite3 = require('sqlite3').verbose();
 const loadConfig = require('../utils/config');
-const proxy = require('../core/proxy');
-const redirect = require('../core/redirect');
 const serverManager = require('../core/serverManager');
 const stats = require('../core/stats');
 const getIp = require('../utils/getIp');
-// const proxyConfig = require('../core/proxyConfig');
-// const proxyActiveSessions = require('../core/proxyActiveSessions');
 
 const logRoutes = debug('routes');
 
 class Routes {
-	constructor() {
+	constructor(config) {
 		this._router = new Router();
-		this._config = loadConfig();
+		this._config = config;
 		this._registerRoutes();
+		this._setupProxies();
+	}
+
+	_setupProxies() {
+		const interceptProxy = httpProxy.createProxyServer({
+			target: {
+				host: this._config.plex.host,
+				port: this._config.plex.port
+			},
+			selfHandleResponse: customHandling
+		});
+		interceptProxy.on('proxyRes', (proxyRes, req, res) => {
+			let body = new Buffer('');
+			proxyRes.on('data', data => {
+				body = Buffer.concat([body, data]);
+			});
+			proxyRes.on('end', () => {
+				body = body.toString();
+				res.header('Content-Type', 'text/xml;charset=utf-8');
+				res.send(body.replace('<MediaContainer ', `<MediaContainer terminationCode="2006" terminationText="${serverManager.stoppedSessions[req.query['X-Plex-Session-Identifier']].replace('"', '&#34;')}" `));
+			});
+		})
+		interceptProxy.on('error', this._onProxyError);
+
+		const passthroughProxy = httpProxy.createProxyServer({
+			target: {
+				host: this._config.plex.host,
+				port: this._config.plex.port
+			}
+		});
+		passthroughProxy.on('error', this._onProxyError);
+
+		this._interceptProxy = interceptProxy;
+		this._passthroughProxy = passthroughProxy;
+	}
+
+	_onProxyError(err, _, res) {
+		logRoutes('error', err);
+		res.writeHead(404, {});
+		res.end('Plex did not respond in time, request failure');
 	}
 
 	_registerRoutes() {
-		this._router.get('/api/reload', this.reloadConfig.bind(this));
 		this._router.get('/api/scores', this.scores.bind(this));
 		this._router.get('/api/stats', this.stats.bind(this));
 		this._router.get('/api/pathname/:downloadid', this.downloadId.bind(this));
-		this._router.all('/api/plex/*', this.direct.bind(this));
-		this._router.get('/video/:/transcode/universal/dash/:sessionId/:streamId/initial.mp4', redirect);
-		this._router.get('/video/:/transcode/universal/dash/:sessionId/:streamId/:partId.m4s', redirect);
+		this._router.get('/video/:/transcode/universal/dash/:sessionId/:streamId/initial.mp4', this._redirect);
+		this._router.get('/video/:/transcode/universal/dash/:sessionId/:streamId/:partId.m4s', this._redirect);
 		this._router.get('/video/:/transcode/universal/start', this.start.bind(this));
 		this._router.get('/video/:/transcode/universal/start.m3u8', this.start.bind(this));
 		this._router.get('/video/:/transcode/universal/start.mpd', this.startMpd.bind(this));
-		this._router.get('/video/:/transcode/universal/subtitles', redirect);
-		this._router.get('/video/:/transcode/universal/session/:sessionId/base/index.m3u8', redirect);
-		this._router.get('/video/:/transcode/universal/session/:sessionId/base-x-mc/index.m3u8', redirect);
-		this._router.get('/video/:/transcode/universal/session/:sessionId/:fileType/:partId.ts', redirect);
-		this._router.get('/video/:/transcode/universal/session/:sessionId/:fileType/:partId.vtt', redirect);
+		this._router.get('/video/:/transcode/universal/subtitles', this._redirect);
+		this._router.get('/video/:/transcode/universal/session/:sessionId/base/index.m3u8', this._redirect);
+		this._router.get('/video/:/transcode/universal/session/:sessionId/base-x-mc/index.m3u8', this._redirect);
+		this._router.get('/video/:/transcode/universal/session/:sessionId/:fileType/:partId.ts', this._redirect);
+		this._router.get('/video/:/transcode/universal/session/:sessionId/:fileType/:partId.vtt', this._redirect);
 		this._router.get('/video/:/transcode/universal/stop', this.stop.bind(this));
 		this._router.get('/video/:/transcode/universal/ping', this.ping.bind(this));
 		this._router.get('/:/timeline', this.timeline.bind(this));
 		this._router.get('/status/sessions/terminate', this.terminate.bind(this));
-		this._router.get('/library/parts/:id1/:id2/file.*', redirect);
-		// this._router.get('/status/sessions', this.sessions.bind(this));
-		// this._router.get('/', this.proxy.bind(this));
-		this._router.all('*', this.catchAll.bind(this));
+		this._router.get('/library/parts/:id1/:id2/file.*', this._redirect);
 	}
 
 	_getMap(res, pred = p => p) {
@@ -55,17 +86,10 @@ class Routes {
 		res.json(output);
 	}
 
-	reloadConfig(_, res) {
-		let success;
-		try {
-			this._config = loadConfig();
-			success = true;
-		} catch (e) {
-			success = false;
-			logRoutes(e);
-			logRoutes(e.stack);
-		}
-		res.json({success: success});
+	_redirect(req, res) {
+		const sessionId = serverManager.getSession(req);
+		const serverUrl = serverManager.chooseServer(sessionId, getIp(req));
+		res.status(302).location(serverUrl + req.url);
 	}
 
 	scores(_, res) {
@@ -93,16 +117,11 @@ class Routes {
 			res.status(404).send('File not found in Plex Database');
 		}
 	}
-	
-	direct(req, res) {
-		req.url = req.url.slice('/api/plex'.length);
-		return proxy.web(req, res);
-	}
 
 	startMpd(req, res) {	
 		let sessionId = false;
-		if (typeof(req.query['X-Plex-Session-Identifier']) !== void(0)
-				&& typeof(serverManager.cacheSession[req.query['X-Plex-Session-Identifier']]) !== void(0)) {
+		if (req.query['X-Plex-Session-Identifier'] !== void(0)
+				&& serverManager.cacheSession[req.query['X-Plex-Session-Identifier']] !== void(0)) {
 			sessionId = serverManager.cacheSession[req.query['X-Plex-Session-Identifier']];
 		}
 		
@@ -110,23 +129,21 @@ class Routes {
 			const serverUrl = serverManager.chooseServer(sessionId, getIp(req));
 			request(`${serverUrl}/video/:/transcode/universal/stop?session=${sessionId}`, () => {
 				serverManager.saveSession(req);
-				redirect(req, res);
+				this._redirect(req, res);
 			});
 		}
 		else {
 			serverManager.saveSession(req);
-			redirect(req, res);
+			this._redirect(req, res);
 		}
 	}
 
 	start(req, res) {
 		serverManager.saveSession(req);
-		redirect(req, res);
+		this._redirect(req, res);
 	}
 
-	stop(req, res) {
-		proxy.web(req, res);
-		
+	stop(req, res) {		
 		const sessionId = serverManager.getSession(req);
 		const serverUrl = serverManager.chooseServer(sessionId, getIp(req));
 
@@ -134,14 +151,13 @@ class Routes {
 		
 		setTimeout(() => {
 			serverManager.removeSession(sessionId);
-			if (typeof(serverManager.stoppedSessions[req.query['X-Plex-Session-Identifier']]) !== void(0)) {
+			if (serverManager.stoppedSessions[req.query['X-Plex-Session-Identifier']] !== void(0)) {
 				delete serverManager.stoppedSessions[req.query['X-Plex-Session-Identifier']];
 			}
 		}, 1000);
 	}
 
 	ping(req, res) {
-		proxy.web(req, res);
 		const sessionId = serverManager.getSession(req);
 		const serverUrl = serverManager.chooseServer(sessionId, getIp(req));
 		request(`${serverUrl}/video/:/transcode/universal/ping?session=${sessionId}`);
@@ -150,46 +166,16 @@ class Routes {
 	timeline(req, res) {
 		const sessionId = serverManager.getSession(req);
 		const serverUrl = serverManager.chooseServer(sessionId, getIp(req));
-		
-		let cproxy;
-		if (typeof(req.query['X-Plex-Session-Identifier']) !== void(0)
-				&& typeof(serverManager.stoppedSessions[req.query['X-Plex-Session-Identifier']]) !== void(0)) {
-			cproxy = httpProxy.createProxyServer({
-				target: {
-					host: this._config.plex.host,
-					port: this._config.plex.port
-				},
-				selfHandleResponse: true
-			});
-			cproxy.on('proxyRes', (proxyRes, req, res) => {
-				let body = new Buffer('');
-				proxyRes.on('data', (data) => {
-					body = Buffer.concat([body, data]);
-				});
-				proxyRes.on('end', () => {
-					body = body.toString();
-					res.header('Content-Type', 'text/xml;charset=utf-8');
-					res.send(body.replace('<MediaContainer ', `<MediaContainer terminationCode="2006" terminationText="${serverManager.stoppedSessions[req.query['X-Plex-Session-Identifier']].replace('"', '&#34;')}" `));
-				});
-			})
-			cproxy.on('error', (err, _, res) => {
-				logRoutes('error', err);
-				res.writeHead(404, {});
-				res.end('Plex not respond in time, proxy request fails');
-			});
-		}
-		else {
-			cproxy = proxy;
-		}
-		
-		if (req.query.state == 'stopped' || (typeof(req.query['X-Plex-Session-Identifier']) !== void(0)
-				&& typeof(serverManager.stoppedSessions[req.query['X-Plex-Session-Identifier']]) !== void(0))) {
-			cproxy.web(req, res);
-			
+		const customHandling = req.query['X-Plex-Session-Identifier'] !== void(0)
+			&& serverManager.stoppedSessions[req.query['X-Plex-Session-Identifier']] !== void(0);
+		const proxy = customHandling ? this._interceptProxy : this._passthroughProxy;
+
+		if (req.query.state == 'stopped' || customHandling) {
+			proxy.web(req, res);
 			request(`${serverUrl}/video/:/transcode/universal/stop?session=${sessionId}`);			
 			setTimeout(() => {
 				serverManager.removeSession(sessionId);
-				if (typeof(serverManager.stoppedSessions[req.query['X-Plex-Session-Identifier']]) !== void(0)) {
+				if (serverManager.stoppedSessions[req.query['X-Plex-Session-Identifier']] !== void(0)) {
 					delete serverManager.stoppedSessions[req.query['X-Plex-Session-Identifier']];
 				}
 			}, 1000);
@@ -205,26 +191,9 @@ class Routes {
 		res.send('<?xml version="1.0" encoding="UTF-8"?><MediaContainer size="0"></MediaContainer>');
 		const sessionId = req.query.sessionId;
 		const reason = req.query.reason;
-		if (typeof(sessionId) !== void(0) && typeof(reason) !== void(0)) {
+		if (sessionId !== void(0) && reason !== void(0)) {
 			serverManager.forceStopStream(sessionId, reason);
 		}
-	}
-
-/*
-	sessions(req, res) {
-		proxyActiveSessions.web(req, res);
-	}
-
-	proxy(req, res) {
-		if (req.query['X-Plex-Device-Name'])
-			proxyConfig.web(req, res);
-		else
-			proxy.web(req, res);
-	}
-*/
-
-	catchAll(req, res) {
-		proxy.web(req, res);
 	}
 
 	toRoutes() {
@@ -232,5 +201,7 @@ class Routes {
 	}
 }
 
-const router = new Routes();
-module.exports = router.toRoutes();
+module.exports = config => {
+	const router = new Routes(config);
+	return router.toRoutes();
+};
