@@ -1,14 +1,9 @@
 const { Router } = require('express');
 const request = require('request');
 const httpProxy = require('http-proxy');
-const debug = require('debug');
 const sqlite3 = require('sqlite3').verbose();
-const loadConfig = require('../utils/config');
 const serverManager = require('../core/serverManager');
 const stats = require('../core/stats');
-const getIp = require('../utils/getIp');
-
-const logRoutes = debug('routes');
 
 class Routes {
 	constructor(config) {
@@ -52,7 +47,7 @@ class Routes {
 	}
 
 	_onProxyError(err, _, res) {
-		logRoutes('error', err);
+		console.log(`[ERROR] ${err}`);
 		res.writeHead(404, {});
 		res.end('Plex did not respond in time, request failure');
 	}
@@ -88,7 +83,7 @@ class Routes {
 
 	_redirect(req, res) {
 		const sessionId = serverManager.getSession(req);
-		const serverUrl = serverManager.chooseServer(sessionId, getIp(req));
+		const serverUrl = serverManager.chooseServer(sessionId);
 		res.status(302).location(serverUrl + req.url);
 	}
 
@@ -126,7 +121,7 @@ class Routes {
 		}
 		
 		if (sessionId !== false) {
-			const serverUrl = serverManager.chooseServer(sessionId, getIp(req));
+			const serverUrl = serverManager.chooseServer(sessionId);
 			request(`${serverUrl}/video/:/transcode/universal/stop?session=${sessionId}`, () => {
 				serverManager.saveSession(req);
 				this._redirect(req, res);
@@ -145,7 +140,7 @@ class Routes {
 
 	stop(req, res) {		
 		const sessionId = serverManager.getSession(req);
-		const serverUrl = serverManager.chooseServer(sessionId, getIp(req));
+		const serverUrl = serverManager.chooseServer(sessionId);
 
 		request(`${serverUrl}/video/:/transcode/universal/stop?session=${sessionId}`);
 		
@@ -159,13 +154,13 @@ class Routes {
 
 	ping(req, res) {
 		const sessionId = serverManager.getSession(req);
-		const serverUrl = serverManager.chooseServer(sessionId, getIp(req));
+		const serverUrl = serverManager.chooseServer(sessionId);
 		request(`${serverUrl}/video/:/transcode/universal/ping?session=${sessionId}`);
 	}
 
 	timeline(req, res) {
 		const sessionId = serverManager.getSession(req);
-		const serverUrl = serverManager.chooseServer(sessionId, getIp(req));
+		const serverUrl = serverManager.chooseServer(sessionId);
 		const customHandling = req.query['X-Plex-Session-Identifier'] !== void(0)
 			&& serverManager.stoppedSessions[req.query['X-Plex-Session-Identifier']] !== void(0);
 		const proxy = customHandling ? this._interceptProxy : this._passthroughProxy;

@@ -1,12 +1,6 @@
 {
 	"loadBalancer": {
-		"port": 3001,
-		"ips": {
-			"all": true,
-			"networks": [
-				"127.0.0.1/32"
-			]
-		}
+		"port": 3240
 	},
 	"cluster": [
 		"https://transcoder1.myplex.com",

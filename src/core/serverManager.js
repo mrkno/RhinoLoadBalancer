@@ -1,4 +1,3 @@
-const rangeCheck = require('range_check');
 const loadConfig = require('../utils/config');
 const stats = require('../core/stats');
 
@@ -67,12 +66,7 @@ class ServerManager {
 		this._stoppedSessions[session] = reason;
 	}
 
-	chooseServer(session, ip = false) {
-		const ips = this._config.loadBalancer.ips;
-		if (!ips.all && ip && !ips.networks.some(p => rangeCheck.inRange(ip, p))) {
-			return `${this._config.plex.host}:${this._config.plex.port}`;
-		}
-
+	chooseServer(session) {
 		if (this._config.cluster.length === 0) {
 			return false;
 		}
