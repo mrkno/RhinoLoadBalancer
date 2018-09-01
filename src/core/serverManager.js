@@ -50,7 +50,19 @@ class ServerManager {
 		else if (this._sessions[session] !== void(0) && this._transcoders.exists(this._sessions[session])) {
 			return this._sessions[session];
 		}
-		const assignedServer = this._transcoders.assignServer();
+
+		let ip;
+		const fwdHeader = req.headers['forwarded'];
+		if (fwdHeader) {
+			const startIndex = fwdHeader.indexOf('for=') + 4;
+			const length = fwdHeader.substr(startIndex).search(/(,| |"|$)/);
+			ip = fwdHeader.substr(startIndex, length);
+		}
+		else {
+			ip = req.headers['cf-connecting-ip'] || req.headers['x-forwarded-for'] || req.headers['x-real-ip'] || req.connection.remoteAddress;
+		}
+
+		const assignedServer = this._transcoders.assignServer(ip);
 		this._sessions[session] = assignedServer;
 		return assignedServer;
 	}

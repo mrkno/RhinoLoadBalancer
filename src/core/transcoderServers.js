@@ -1,11 +1,17 @@
+
+const geolite2 = require('geolite2');
+const maxmind = require('maxmind');
+
 class TranscoderServers {
 	constructor() {
 		this._transcoders = {};
+		this._iplookup = maxmind.openSync(geolite2.paths.country);
 	}
 
-	_calculateServerLoad(loadStats) {
-		if (!loadStats) {
-			return 1000;
+	_calculateServerLoad(id) {
+		const loadStats = this._transcoders[id];
+		if (!loadStats || loadStats.config.maxTotalStreams >= loadStats.currentTotal) {
+			return -1;
 		}
 		let load = loadStats.transcoding || 0;
 		if (loadStats.codecs.hevc) {
@@ -23,8 +29,41 @@ class TranscoderServers {
 		return load;
 	}
 
-	assignServer() {
-		return Object.keys(this._transcoders).sort(id => this._calculateServerLoad(id))[0];
+	_getContinent(ip) {
+		try {
+			return this._iplookup.get(ip).continent.code;
+		}
+		catch(e) {
+			return '';
+		}
+	}
+
+	assignServer(ip) {
+		const continent = this._getContinent(ip);
+		const avalibleServers = {};
+		const serverList = [];
+		for (let id of Object.keys(this._transcoders)) {
+			const load = this._calculateServerLoad(id);
+			if (load >= 0) {
+				avalibleServers[id] = {
+					load: load,
+					continent: this._transcoders[id].continent
+				};
+				serverList.push(id);
+			}
+		}
+
+		const continentalLoads = serverList
+			.filter(id => avalibleServers[id].continent === continent)
+			.sort(id => avalibleServers[id].load);
+
+		// try get the geographically closest, lowest load node
+		if (continentalLoads[0] !== void(0)) {
+			return continentalLoads[0];
+		}
+
+		// the lowest load global node
+		return serverList.sort(id => avalibleServers[id])[0];
 	}
 
 	exists(id) {
@@ -35,8 +74,12 @@ class TranscoderServers {
 		return Object.keys(this._transcoders).length > 0;
 	}
 
-	update(id, stats) {
-		this._transcoders[id] = stats;
+	update(id, transcoderData) {
+		if (!this._transcoders[id]) {
+			transcoderData.continent = this._getContinent(transcoderData.ip);
+		}
+		transcoderData.continent = this._transcoders[id];
+		this._transcoders[id] = transcoderData;
 	}
 
 	remove(id) {
