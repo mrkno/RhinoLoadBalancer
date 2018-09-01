@@ -12,11 +12,12 @@ const TranscoderServers = require('./core/transcoderServers');
 const config = loadConfig();
 const transcoderServers = new TranscoderServers();
 const serverManager = new ServerManager(transcoderServers);
-const app = expressWs(express());
+const app = express();
+const wss = expressWs(app);
 
 app.use(corsMiddleware);
 
-app.use('/rhino', rhinoRoutes(config, app, transcoderServers));
+app.use('/rhino', rhinoRoutes(config, wss, transcoderServers));
 app.use('/', plexRoutes(config, serverManager));
 
 app.listen(config.loadBalancer.port,

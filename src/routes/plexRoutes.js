@@ -17,7 +17,7 @@ class PlexRoutes {
 				host: this._config.plex.host,
 				port: this._config.plex.port
 			},
-			selfHandleResponse: customHandling
+			selfHandleResponse: true
 		});
 		interceptProxy.on('proxyRes', (proxyRes, req, res) => {
 			let body = new Buffer('');

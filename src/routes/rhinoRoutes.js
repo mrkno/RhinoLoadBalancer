@@ -1,4 +1,4 @@
-const { Router } = require('express');
+const express = require('express');
 const sqlite3 = require('sqlite3').verbose();
 
 class RhinoRoutes {
@@ -6,7 +6,7 @@ class RhinoRoutes {
         this._config = config;
         this._instance = instance;
         this._transcoderServers = transcoderServers;
-		this._router = new Router();
+		this._router = new express.Router();
         this._registerRoutes();
         this._heatbeatInterval = setInterval(this._heatbeat.bind(this), this._config.loadBalancer.heatbeatTimeout || 5000);
 	}
