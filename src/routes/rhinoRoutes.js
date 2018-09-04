@@ -1,19 +1,20 @@
 const express = require('express');
+const crypto = require('crypto');
 const sqlite3 = require('sqlite3').verbose();
+const sessionStore = require('../core/sessionStore');
 
 class RhinoRoutes {
-	constructor(config, instance, transcoderServers) {
+	constructor(config, io, transcoderServers) {
         this._config = config;
-        this._instance = instance;
+        this._io = io;
         this._transcoderServers = transcoderServers;
 		this._router = new express.Router();
         this._registerRoutes();
-        this._heatbeatInterval = setInterval(this._heatbeat.bind(this), this._config.loadBalancer.heatbeatTimeout || 5000);
 	}
 
 	_registerRoutes() {
         this._router.use('/sessions', express.static(this._config.plex.sessions));
-        this._router.ws('/comms', this.setupWebsocket.bind(this));
+        this._io.on('connection', this.setupWebsocket.bind(this));
     }
 
     static _generateUid() {
@@ -21,28 +22,12 @@ class RhinoRoutes {
     }
 
     _getWebsockets() {
-        return this._instance.getWss().clients;
-    }
-
-    _handleClose(ws) {
-        ws.terminate();
-        this._transcoderServers.remove(ws.rhinoId);
-    }
-
-    _heatbeat() {
-        for (let ws of this._getWebsockets()) {
-            if (ws.isAlive === false) {
-                this._handleClose(ws);
-            }
-            else {
-                ws.isAlive = false;
-                ws.ping(() => {});
-            }
-        }
+        return this._io.sockets.clients();
     }
 
     _handleData(ws, data) {
         const json = JSON.parse(data);
+        console.log(data);
         const eventId = data.eventId;
         switch (json.event) {
             case 'load':
@@ -50,6 +35,9 @@ class RhinoRoutes {
                 break;
             case 'path':
                 this._downloadId(ws, eventId, json.downloadId);
+                break;
+            case 'redis':
+                sessionStore.handleRemoteTranscodeRequest(json);
                 break;
             default:
                 console.error(`Unknown event: ${data}`);
@@ -78,11 +66,16 @@ class RhinoRoutes {
 		}
 	}
 
+    _handleClose(ws) {
+        console.error(`Transcoder id=${ws.rhinoId} disconnected.`);
+        this._transcoderServers.remove(ws.rhinoId);
+    }
+
     setupWebsocket(ws) {
-        ws.isAlive = true;
         ws.rhinoId = RhinoRoutes._generateUid();
-        ws.on('pong', () => ws.isAlive = true);
+        console.log(`New transcoder with id=${ws.rhinoId} connected.`);
         ws.on('message', this._handleData.bind(this, ws));
+        ws.on('disconnect', this._handleClose.bind(this, ws));
         ws.on('error', this._handleClose.bind(this, ws));
         ws.on('close', this._handleClose.bind(this, ws));
     }
@@ -92,7 +85,7 @@ class RhinoRoutes {
 	}
 }
 
-module.exports = (config, instance, transcoderServers) => {
-	const router = new RhinoRoutes(config, instance, transcoderServers);
+module.exports = (config, io, transcoderServers) => {
+	const router = new RhinoRoutes(config, io, transcoderServers);
 	return router.toRoutes();
 };
