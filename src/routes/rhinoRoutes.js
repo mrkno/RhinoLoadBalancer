@@ -25,13 +25,11 @@ class RhinoRoutes {
         return this._io.sockets.clients();
     }
 
-    _handleData(ws, data) {
-        const json = JSON.parse(data);
-        console.log(data);
-        const eventId = data.eventId;
+    _handleData(ws, json) {
+        const eventId = json.eventId;
         switch (json.event) {
             case 'load':
-                this._transcoderServers.update(ws.rhinoId, json.stats);
+                this._transcoderServers.update(ws.rhinoId, json);
                 break;
             case 'path':
                 this._downloadId(ws, eventId, json.downloadId);
@@ -40,7 +38,7 @@ class RhinoRoutes {
                 sessionStore.handleRemoteTranscodeRequest(json);
                 break;
             default:
-                console.error(`Unknown event: ${data}`);
+                console.error(`Unknown event: ${JSON.stringify(json)}`);
                 break;
         }
     }

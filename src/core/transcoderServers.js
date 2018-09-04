@@ -78,7 +78,9 @@ class TranscoderServers {
 		if (!this._transcoders[id]) {
 			transcoderData.continent = this._getContinent(transcoderData.ip);
 		}
-		transcoderData.continent = this._transcoders[id];
+		else {
+			transcoderData.continent = this._transcoders[id].continent;
+		}
 		this._transcoders[id] = transcoderData;
 	}
 
