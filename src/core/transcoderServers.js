@@ -1,4 +1,3 @@
-
 const geolite2 = require('geolite2');
 const maxmind = require('maxmind');
 

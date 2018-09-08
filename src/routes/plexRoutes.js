@@ -29,7 +29,7 @@ class PlexRoutes {
 				res.header('Content-Type', 'text/xml;charset=utf-8');
 				res.send(body.replace('<MediaContainer ', `<MediaContainer terminationCode="2006" terminationText="${this._serverManager.stoppedSessions[req.query['X-Plex-Session-Identifier']].replace('"', '&#34;')}" `));
 			});
-		})
+		});
 		interceptProxy.on('error', this._onProxyError);
 
 		const passthroughProxy = httpProxy.createProxyServer({
@@ -113,7 +113,7 @@ class PlexRoutes {
 		}, 1000);
 	}
 
-	ping(req, res) {
+	ping(req) {
 		const sessionId = this._serverManager.getSession(req);
 		const serverUrl = this._serverManager.chooseServer(sessionId, req);
 		request(`${serverUrl}/video/:/transcode/universal/ping?session=${sessionId}`);
@@ -126,7 +126,7 @@ class PlexRoutes {
 			&& this._serverManager.stoppedSessions[req.query['X-Plex-Session-Identifier']] !== void(0);
 		const proxy = customHandling ? this._interceptProxy : this._passthroughProxy;
 
-		if (req.query.state == 'stopped' || customHandling) {
+		if (req.query.state === 'stopped' || customHandling) {
 			proxy.web(req, res);
 			request(`${serverUrl}/video/:/transcode/universal/stop?session=${sessionId}`);			
 			setTimeout(() => {

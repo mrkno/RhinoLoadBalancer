@@ -13,22 +13,12 @@ class ServerManager {
 	}
 
 	getSession(req) {
-		if (typeof(req.params.sessionId) !== void(0)) {
-			return req.params.sessionId;
-		}
-		else if (typeof(req.query.session) !== void(0)) {
-			return req.query.session;
-		}
-		else if (typeof(req.query['X-Plex-Session-Identifier']) !== void(0) && typeof(this._cacheSession[req.query['X-Plex-Session-Identifier']]) !== void(0)) {
-			return this._cacheSession[req.query['X-Plex-Session-Identifier']];
-		}
-		else if (typeof(req.query['X-Plex-Session-Identifier']) !== void(0)) {
-			return req.query['X-Plex-Session-Identifier'];
-		}
-		else if (typeof(req.query['X-Plex-Client-Identifier']) !== void(0)) {
-			return req.query['X-Plex-Client-Identifier'];
-		}
-		return false;
+		return req.params.sessionId
+			|| req.query.session
+			|| this._cacheSession[req.query['X-Plex-Session-Identifier']]
+			|| req.query['X-Plex-Session-Identifier']
+			|| req.query['X-Plex-Client-Identifier']
+			|| false;
 	}
 
 	removeServer(url) {
@@ -43,7 +33,7 @@ class ServerManager {
 		this._stoppedSessions[session] = reason;
 	}
 
-	chooseServer(session) {
+	chooseServer(session, req) {
 		if (this._transcoders.any()) {
 			return false;
 		}
