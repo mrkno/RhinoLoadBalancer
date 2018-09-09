@@ -99,18 +99,20 @@ class PlexRoutes {
 		this._redirect(req, res);
 	}
 
-	stop(req, res) {		
-		const sessionId = this._serverManager.getSession(req);
-		const serverUrl = this._serverManager.chooseServer(sessionId, req);
-
-		request(`${serverUrl}/video/:/transcode/universal/stop?session=${sessionId}`);
-		
+	_stopCommon(req, serverUrl) {
+		request(`${serverUrl}/video/:/transcode/universal/stop?session=${sessionId}`);			
 		setTimeout(() => {
 			this._serverManager.removeSession(sessionId);
 			if (this._serverManager.stoppedSessions[req.query['X-Plex-Session-Identifier']] !== void(0)) {
 				delete this._serverManager.stoppedSessions[req.query['X-Plex-Session-Identifier']];
 			}
 		}, 1000);
+	}
+
+	stop(req) {
+		const sessionId = this._serverManager.getSession(req);
+		const serverUrl = this._serverManager.chooseServer(sessionId, req);
+		this._stopCommon(req, serverUrl);
 	}
 
 	ping(req) {
@@ -128,13 +130,7 @@ class PlexRoutes {
 
 		if (req.query.state === 'stopped' || customHandling) {
 			proxy.web(req, res);
-			request(`${serverUrl}/video/:/transcode/universal/stop?session=${sessionId}`);			
-			setTimeout(() => {
-				this._serverManager.removeSession(sessionId);
-				if (this._serverManager.stoppedSessions[req.query['X-Plex-Session-Identifier']] !== void(0)) {
-					delete this._serverManager.stoppedSessions[req.query['X-Plex-Session-Identifier']];
-				}
-			}, 1000);
+			this._stopCommon(req, serverUrl);
 		}
 		else {
 			proxy.web(req, res);

@@ -45,7 +45,7 @@ class TranscoderServers {
 			const load = this._calculateServerLoad(id);
 			if (load >= 0) {
 				avalibleServers[id] = {
-					load: load,
+					load,
 					continent: this._transcoders[id].continent
 				};
 				serverList.push(id);

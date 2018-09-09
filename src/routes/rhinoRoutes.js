@@ -31,7 +31,7 @@ class RhinoRoutes {
     }
 
     static _generateUid() {
-        return crypto.randomBytes(16).toString("hex");
+        return crypto.randomBytes(16).toString('hex');
     }
 
     _handleClose(ws) {
@@ -82,14 +82,14 @@ class RhinoRoutes {
         return new Promise(resolve => {
             try {
                 const db = new sqlite3.Database(this._config.plex.database);
-                db.get("SELECT * FROM media_parts WHERE id=? LIMIT 0,1", json.downloadId, (err, row) => {
+                db.get('SELECT * FROM media_parts WHERE id=? LIMIT 0,1', json.downloadId, (err, row) => {
                     let data = null;
                     if (!err && row && row.file) {
                         data = row;
                     }
                     db.close();
                     resolve({
-                        data: data
+                        data
                     });
                 });
             }
