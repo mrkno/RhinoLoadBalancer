@@ -121,13 +121,12 @@ class PlexRoutes {
 		const proxy = customHandling ? this._interceptProxy : this._passthroughProxy;
 
 		if (req.query.state === 'stopped' || customHandling) {
-			proxy.web(req, res);
 			this._stopCommon(req, serverUrl, sessionId);
 		}
 		else {
-			proxy.web(req, res);
 			request(`${serverUrl}/video/:/transcode/universal/ping?session=${sessionId}`);
 		}
+		proxy.web(req, res);
 	}
 
 	terminate(req, res) {

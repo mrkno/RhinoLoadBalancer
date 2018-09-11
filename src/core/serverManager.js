@@ -1,9 +1,9 @@
 class ServerManager {
-	constructor(transcoderStats) {
+	constructor(transcoderManager) {
 		this._cacheSession = {};
 		this._sessions = {};
 		this._stoppedSessions = {};
-		this._transcoders = transcoderStats;
+		this._transcoderManager = transcoderManager;
 	}
 
 	saveSession(req) {
@@ -38,10 +38,10 @@ class ServerManager {
 	}
 
 	chooseServer(session, req) {
-		if (this._transcoders.any()) {
+		if (!this._transcoderManager.any()) {
 			return false;
 		}
-		else if (this._sessions[session] !== void(0) && this._transcoders.exists(this._sessions[session])) {
+		else if (this._sessions[session] !== void(0) && this._transcoderManager.exists(this._sessions[session])) {
 			return this._sessions[session];
 		}
 
@@ -56,7 +56,7 @@ class ServerManager {
 			ip = req.headers['cf-connecting-ip'] || req.headers['x-forwarded-for'] || req.headers['x-real-ip'] || req.connection.remoteAddress;
 		}
 
-		const assignedServer = this._transcoders.assignServer(ip);
+		const assignedServer = this._transcoderManager.assignServer(ip);
 		this._sessions[session] = assignedServer;
 		return assignedServer;
 	}

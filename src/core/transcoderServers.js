@@ -3,12 +3,11 @@ const maxmind = require('maxmind');
 
 class TranscoderServers {
 	constructor() {
-		this._transcoders = {};
+		this._transcoders = [];
 		this._iplookup = maxmind.openSync(geolite2.paths.country);
 	}
 
-	_calculateServerLoad(id) {
-		const loadStats = this._transcoders[id];
+	_calculateServerLoad(loadStats) {
 		if (!loadStats || loadStats.config.maxTotalStreams >= loadStats.currentTotal) {
 			return -1;
 		}
@@ -37,18 +36,26 @@ class TranscoderServers {
 		}
 	}
 
+	_findById(id) {
+		return this._transcoders.find(t => t.id === id);
+	}
+
+	_findByUrl(accessUrl) {
+		return this._transcoders.find(t => t.accessUrl === accessUrl);
+	}
+
 	assignServer(ip) {
 		const continent = this._getContinent(ip);
 		const avalibleServers = {};
 		const serverList = [];
-		for (let id of Object.keys(this._transcoders)) {
-			const load = this._calculateServerLoad(id);
+		for (let loadStats of this._transcoders) {
+			const load = this._calculateServerLoad(loadStats);
 			if (load >= 0) {
-				avalibleServers[id] = {
+				avalibleServers[loadStats.id] = {
 					load,
-					continent: this._transcoders[id].continent
+					continent: loadStats.continent
 				};
-				serverList.push(id);
+				serverList.push(loadStats.id);
 			}
 		}
 
@@ -56,35 +63,45 @@ class TranscoderServers {
 			.filter(id => avalibleServers[id].continent === continent)
 			.sort(id => avalibleServers[id].load);
 
-		// try get the geographically closest, lowest load node
+		let serverId;
 		if (continentalLoads[0] !== void(0)) {
-			return continentalLoads[0];
+			// get the geographically closest, lowest load node
+			serverId = continentalLoads[0];
 		}
-
-		// the lowest load global node
-		return serverList.sort(id => avalibleServers[id])[0];
+		else {
+			// the lowest load global node
+			serverId = serverList.sort(id => avalibleServers[id])[0];
+		}
+		return this._findById(serverId).accessUrl;
 	}
 
-	exists(id) {
-		return this._transcoders[id] !== void(0);
+	exists(accessUrl) {
+		return this._findByUrl(accessUrl) !== void(0);
 	}
 
 	any() {
-		return Object.keys(this._transcoders).length > 0;
+		return this._transcoders.length > 0;
 	}
 
 	update(id, transcoderData) {
-		if (!this._transcoders[id]) {
-			transcoderData.continent = this._getContinent(transcoderData.ip);
+		const prev = this._findById(id);
+		if (prev !== void(0)) {
+			for (const key in transcoderData) {
+				prev[key] = transcoderData[key];
+			}
 		}
 		else {
-			transcoderData.continent = this._transcoders[id].continent;
+			transcoderData.id = id;
+			transcoderData.continent = this._getContinent(transcoderData.ip);
+			this._transcoders.push(transcoderData);
 		}
-		this._transcoders[id] = transcoderData;
 	}
 
 	remove(id) {
-		delete this._transcoders[id];
+		const index = this._transcoders.findIndex(t => t.id === id);
+		if (index >= 0) {
+			this._transcoders.splice(index, 1);
+		}
 	}
 }
 

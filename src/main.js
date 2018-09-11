@@ -20,7 +20,7 @@ const io = socketio(server, {
     path: '/rhino/comms'
 });
 
-app.use(morgan('combined'));
+app.use(morgan('immediate'));
 app.use(corsMiddleware);
 
 app.use('/rhino', rhinoRoutes(config, io, transcoderServers));
