@@ -1,6 +1,9 @@
+const { promisify } = require('util');
 const { Router } = require('express');
 const request = require('request');
 const httpProxy = require('http-proxy');
+
+const requestp = promisify(request);
 
 class PlexRoutes {
 	constructor(config, serverManager) {
@@ -74,19 +77,13 @@ class PlexRoutes {
 		res.status(302).location(serverUrl + req.url);
 	}
 
-	startMpd(req, res) {	
+	async startMpd(req, res) {	
 		const sessionId = this._serverManager.getSession(req);
 		if (sessionId !== false) {
 			const serverUrl = this._serverManager.chooseServer(sessionId, req);
-			request(`${serverUrl}/video/:/transcode/universal/stop?session=${sessionId}`, () => {
-				this._serverManager.saveSession(req);
-				this._redirect(req, res);
-			});
+			await requestp(`${serverUrl}/video/:/transcode/universal/stop?session=${sessionId}`);
 		}
-		else {
-			this._serverManager.saveSession(req);
-			this._redirect(req, res);
-		}
+		this.start(req, res);
 	}
 
 	start(req, res) {
@@ -94,26 +91,26 @@ class PlexRoutes {
 		this._redirect(req, res);
 	}
 
-	_stopCommon(req, serverUrl, sessionId) {
-		request(`${serverUrl}/video/:/transcode/universal/stop?session=${sessionId}`);			
-		setTimeout(() => {
-			this._serverManager.removeSession(sessionId, req.query['X-Plex-Session-Identifier']);
-		}, 1000);
+	async _stopCommon(req, serverUrl, sessionId) {
+		await request(`${serverUrl}/video/:/transcode/universal/stop?session=${sessionId}`);			
+		this._serverManager.removeSession(sessionId, req.query['X-Plex-Session-Identifier']);
 	}
 
-	stop(req) {
+	async stop(req, res) {
 		const sessionId = this._serverManager.getSession(req);
 		const serverUrl = this._serverManager.chooseServer(sessionId, req);
-		this._stopCommon(req, serverUrl, sessionId);
+		await this._stopCommon(req, serverUrl, sessionId);
+		res.json({success: true});
 	}
 
-	ping(req) {
+	ping(req, res) {
 		const sessionId = this._serverManager.getSession(req);
 		const serverUrl = this._serverManager.chooseServer(sessionId, req);
 		request(`${serverUrl}/video/:/transcode/universal/ping?session=${sessionId}`);
+		res.json({success: true});
 	}
 
-	timeline(req, res) {
+	async timeline(req, res) {
 		const sessionId = this._serverManager.getSession(req);
 		const serverUrl = this._serverManager.chooseServer(sessionId, req);
 		const customHandling = req.query['X-Plex-Session-Identifier'] !== void(0)
@@ -121,10 +118,10 @@ class PlexRoutes {
 		const proxy = customHandling ? this._interceptProxy : this._passthroughProxy;
 
 		if (req.query.state === 'stopped' || customHandling) {
-			this._stopCommon(req, serverUrl, sessionId);
+			await this._stopCommon(req, serverUrl, sessionId);
 		}
 		else {
-			request(`${serverUrl}/video/:/transcode/universal/ping?session=${sessionId}`);
+			await requestp(`${serverUrl}/video/:/transcode/universal/ping?session=${sessionId}`);
 		}
 		proxy.web(req, res);
 	}
