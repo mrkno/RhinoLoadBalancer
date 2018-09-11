@@ -7,7 +7,7 @@ class ServerManager {
 	}
 
 	saveSession(req) {
-		if (typeof (req.query['X-Plex-Session-Identifier']) !== void(0) && typeof (req.query.session) !== void(0)) {
+		if (req.query['X-Plex-Session-Identifier'] !== void(0) && req.query.session !== void(0)) {
 			this._cacheSession[req.query['X-Plex-Session-Identifier']] = req.query.session.toString();
 		}
 	}
@@ -19,6 +19,10 @@ class ServerManager {
 			|| req.query['X-Plex-Session-Identifier']
 			|| req.query['X-Plex-Client-Identifier']
 			|| false;
+	}
+
+	getStoppedSession(plexSessionIdentifier) {
+		return this._stoppedSessions[plexSessionIdentifier];
 	}
 
 	removeServer(url) {
@@ -57,9 +61,10 @@ class ServerManager {
 		return assignedServer;
 	}
 
-	removeSession(session) {
+	removeSession(session, plexSessionIdentifier) {
 		delete this._sessions[session];
 		delete this._stoppedSessions[session];
+		delete this._stoppedSessions[plexSessionIdentifier];
 	}
 }
 

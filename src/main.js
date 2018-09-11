@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 const http = require('http');
+const morgan = require('morgan');
 const express = require('express');
 const socketio = require('socket.io');
 const corsMiddleware = require('./core/corsMiddleware');
@@ -19,6 +20,7 @@ const io = socketio(server, {
     path: '/rhino/comms'
 });
 
+app.use(morgan('combined'));
 app.use(corsMiddleware);
 
 app.use('/rhino', rhinoRoutes(config, io, transcoderServers));

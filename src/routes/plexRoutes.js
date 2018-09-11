@@ -27,7 +27,7 @@ class PlexRoutes {
 			proxyRes.on('end', () => {
 				body = body.toString();
 				res.header('Content-Type', 'text/xml;charset=utf-8');
-				res.send(body.replace('<MediaContainer ', `<MediaContainer terminationCode="2006" terminationText="${this._serverManager.stoppedSessions[req.query['X-Plex-Session-Identifier']].replace('"', '&#34;')}" `));
+				res.send(body.replace('<MediaContainer ', `<MediaContainer terminationCode="2006" terminationText="${this._serverManager.getStoppedSession(req.query['X-Plex-Session-Identifier']).replace('"', '&#34;')}" `));
 			});
 		});
 		interceptProxy.on('error', this._onProxyError);
@@ -75,12 +75,7 @@ class PlexRoutes {
 	}
 
 	startMpd(req, res) {	
-		let sessionId = false;
-		if (req.query['X-Plex-Session-Identifier'] !== void(0)
-				&& this._serverManager.cacheSession[req.query['X-Plex-Session-Identifier']] !== void(0)) {
-			sessionId = this._serverManager.cacheSession[req.query['X-Plex-Session-Identifier']];
-		}
-		
+		const sessionId = this._serverManager.getSession(req);
 		if (sessionId !== false) {
 			const serverUrl = this._serverManager.chooseServer(sessionId, req);
 			request(`${serverUrl}/video/:/transcode/universal/stop?session=${sessionId}`, () => {
@@ -99,20 +94,17 @@ class PlexRoutes {
 		this._redirect(req, res);
 	}
 
-	_stopCommon(req, serverUrl) {
+	_stopCommon(req, serverUrl, sessionId) {
 		request(`${serverUrl}/video/:/transcode/universal/stop?session=${sessionId}`);			
 		setTimeout(() => {
-			this._serverManager.removeSession(sessionId);
-			if (this._serverManager.stoppedSessions[req.query['X-Plex-Session-Identifier']] !== void(0)) {
-				delete this._serverManager.stoppedSessions[req.query['X-Plex-Session-Identifier']];
-			}
+			this._serverManager.removeSession(sessionId, req.query['X-Plex-Session-Identifier']);
 		}, 1000);
 	}
 
 	stop(req) {
 		const sessionId = this._serverManager.getSession(req);
 		const serverUrl = this._serverManager.chooseServer(sessionId, req);
-		this._stopCommon(req, serverUrl);
+		this._stopCommon(req, serverUrl, sessionId);
 	}
 
 	ping(req) {
@@ -125,12 +117,12 @@ class PlexRoutes {
 		const sessionId = this._serverManager.getSession(req);
 		const serverUrl = this._serverManager.chooseServer(sessionId, req);
 		const customHandling = req.query['X-Plex-Session-Identifier'] !== void(0)
-			&& this._serverManager.stoppedSessions[req.query['X-Plex-Session-Identifier']] !== void(0);
+			&& this._serverManager.getStoppedSession(req.query['X-Plex-Session-Identifier']) !== void(0);
 		const proxy = customHandling ? this._interceptProxy : this._passthroughProxy;
 
 		if (req.query.state === 'stopped' || customHandling) {
 			proxy.web(req, res);
-			this._stopCommon(req, serverUrl);
+			this._stopCommon(req, serverUrl, sessionId);
 		}
 		else {
 			proxy.web(req, res);

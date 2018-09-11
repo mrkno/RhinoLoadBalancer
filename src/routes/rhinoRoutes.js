@@ -9,8 +9,8 @@ class RhinoRoutes {
         this._io = io;
         this._transcoderServers = transcoderServers;
 		this._router = new express.Router();
-        this._registerRoutes();
         this._wsEvents = {};
+        this._registerRoutes();
     }
     
     _registerWsEvent(event, handler) {
