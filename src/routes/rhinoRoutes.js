@@ -65,8 +65,7 @@ class RhinoRoutes {
 
     newSession(req, res) {
         const sessionId = req.params.sessionId;
-        const json = JSON.parse(req.body);
-        sessionStore.store(sessionId, json);
+        sessionStore.store(sessionId, req.body);
         res.send({success: true});
     }
 

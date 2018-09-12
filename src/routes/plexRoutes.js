@@ -2,11 +2,13 @@ const { promisify } = require('util');
 const { Router } = require('express');
 const request = require('request');
 const httpProxy = require('http-proxy');
+const url = require('url');
 
 const requestp = promisify(request);
 
 class PlexRoutes {
 	constructor(config, serverManager) {
+		this._redirect = this._redirect.bind(this);
 		this._router = new Router();
 		this._serverManager = serverManager;
 		this._config = config;
@@ -74,7 +76,10 @@ class PlexRoutes {
 	_redirect(req, res) {
 		const sessionId = this._serverManager.getSession(req);
 		const serverUrl = this._serverManager.chooseServer(sessionId, req);
-		res.status(302).location(serverUrl + req.url);
+		res.writeHead(302, {
+			Location: url.resolve(serverUrl, req.url)
+		});
+		res.end();
 	}
 
 	async startMpd(req, res) {	

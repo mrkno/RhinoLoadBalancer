@@ -4,6 +4,7 @@ const http = require('http');
 const morgan = require('morgan');
 const express = require('express');
 const socketio = require('socket.io');
+const bodyParser = require('body-parser');
 const corsMiddleware = require('./core/corsMiddleware');
 const rhinoRoutes = require('./routes/rhinoRoutes');
 const plexRoutes = require('./routes/plexRoutes');
@@ -22,6 +23,7 @@ const io = socketio(server, {
 
 app.use(morgan(':remote-addr - :remote-user [:date[clf]] ":method :url HTTP/:http-version" :status :res[content-length] ":referrer" ":user-agent"'));
 app.use(corsMiddleware);
+app.use(bodyParser.json())
 
 app.use('/rhino', rhinoRoutes(config, io, transcoderServers));
 app.use('/', plexRoutes(config, serverManager));
