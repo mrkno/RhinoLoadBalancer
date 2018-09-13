@@ -1,3 +1,5 @@
+const sleep = require('../utils/sleep');
+
 class ServerManager {
 	constructor(transcoderManager) {
 		this._cacheSession = {};
@@ -37,11 +39,18 @@ class ServerManager {
 		this._stoppedSessions[session] = reason;
 	}
 
-	chooseServer(session, req) {
-		if (!this._transcoderManager.any()) {
-			return false;
+	async chooseServer(session, req) {
+		let provisionAttempts = 10;
+		while (!this._transcoderManager.any() && provisionAttempts--) {
+			if (provisionAttempts--) {
+				await sleep(1000);
+			}
+			else {
+				throw new Error('No available transcoders');
+			}
 		}
-		else if (this._sessions[session] !== void(0) && this._transcoderManager.exists(this._sessions[session])) {
+		
+		if (this._sessions[session] !== void(0) && this._transcoderManager.exists(this._sessions[session])) {
 			return this._sessions[session];
 		}
 

@@ -5,11 +5,11 @@ const morgan = require('morgan');
 const express = require('express');
 const socketio = require('socket.io');
 const bodyParser = require('body-parser');
-const corsMiddleware = require('./core/corsMiddleware');
-const rhinoRoutes = require('./routes/rhinoRoutes');
-const plexRoutes = require('./routes/plexRoutes');
 const loadConfig = require('./utils/config');
+const plexRoutes = require('./routes/plexRoutes');
+const rhinoRoutes = require('./routes/rhinoRoutes');
 const ServerManager = require('./core/serverManager');
+const corsMiddleware = require('./core/corsMiddleware');
 const TranscoderServers = require('./core/transcoderServers');
 
 const config = loadConfig();

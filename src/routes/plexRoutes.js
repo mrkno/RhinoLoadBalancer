@@ -73,9 +73,9 @@ class PlexRoutes {
 		this._router.get('/library/parts/:id1/:id2/file.*', this._redirect);
 	}
 
-	_redirect(req, res) {
+	async _redirect(req, res) {
 		const sessionId = this._serverManager.getSession(req);
-		const serverUrl = this._serverManager.chooseServer(sessionId, req);
+		const serverUrl = await this._serverManager.chooseServer(sessionId, req);
 		res.writeHead(302, {
 			Location: url.resolve(serverUrl, req.url)
 		});
@@ -85,8 +85,17 @@ class PlexRoutes {
 	async startMpd(req, res) {	
 		const sessionId = this._serverManager.getSession(req);
 		if (sessionId !== false) {
-			const serverUrl = this._serverManager.chooseServer(sessionId, req);
-			await requestp(`${serverUrl}/video/:/transcode/universal/stop?session=${sessionId}`);
+			const serverUrl = await this._serverManager.chooseServer(sessionId, req);
+			try {
+				await requestp(`${serverUrl}/video/:/transcode/universal/stop?session=${sessionId}`);
+			}
+			catch(e) {
+				res.status(429).json({
+					success: false,
+					error: 'No transcoder is able to fulfill your request'
+				});
+				return;
+			}
 		}
 		this.start(req, res);
 	}
@@ -97,27 +106,39 @@ class PlexRoutes {
 	}
 
 	async _stopCommon(req, serverUrl, sessionId) {
-		await request(`${serverUrl}/video/:/transcode/universal/stop?session=${sessionId}`);			
+		try {
+			await request(`${serverUrl}/video/:/transcode/universal/stop?session=${sessionId}`);
+		}
+		catch(e) {
+			res.status(429).json({
+				success: false,
+				error: 'No transcoder is able to fulfill your request'
+			});
+			return;
+		}
 		this._serverManager.removeSession(sessionId, req.query['X-Plex-Session-Identifier']);
 	}
 
 	async stop(req, res) {
 		const sessionId = this._serverManager.getSession(req);
-		const serverUrl = this._serverManager.chooseServer(sessionId, req);
+		const serverUrl = await this._serverManager.chooseServer(sessionId, req);
 		await this._stopCommon(req, serverUrl, sessionId);
 		res.json({success: true});
 	}
 
-	ping(req, res) {
+	async ping(req, res) {
 		const sessionId = this._serverManager.getSession(req);
-		const serverUrl = this._serverManager.chooseServer(sessionId, req);
-		request(`${serverUrl}/video/:/transcode/universal/ping?session=${sessionId}`);
+		const serverUrl = await this._serverManager.chooseServer(sessionId, req);
+		try {
+			requestp(`${serverUrl}/video/:/transcode/universal/ping?session=${sessionId}`);
+		}
+		catch (e) {}
 		res.json({success: true});
 	}
 
 	async timeline(req, res) {
 		const sessionId = this._serverManager.getSession(req);
-		const serverUrl = this._serverManager.chooseServer(sessionId, req);
+		const serverUrl = await this._serverManager.chooseServer(sessionId, req);
 		const customHandling = req.query['X-Plex-Session-Identifier'] !== void(0)
 			&& this._serverManager.getStoppedSession(req.query['X-Plex-Session-Identifier']) !== void(0);
 		const proxy = customHandling ? this._interceptProxy : this._passthroughProxy;
@@ -126,7 +147,16 @@ class PlexRoutes {
 			await this._stopCommon(req, serverUrl, sessionId);
 		}
 		else {
-			await requestp(`${serverUrl}/video/:/transcode/universal/ping?session=${sessionId}`);
+			try {
+				await requestp(`${serverUrl}/video/:/transcode/universal/ping?session=${sessionId}`);
+			}
+			catch(e) {
+				res.status(429).json({
+					success: false,
+					error: 'No transcoder is able to fulfill your request'
+				});
+				return;
+			}
 		}
 		proxy.web(req, res);
 	}

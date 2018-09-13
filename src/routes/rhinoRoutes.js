@@ -1,7 +1,7 @@
 const express = require('express');
 const crypto = require('crypto');
 const sqlite3 = require('sqlite3').verbose();
-const sessionStore = require('../core/sessionStore');
+const SessionStore = require('../core/sessionStore');
 
 class RhinoRoutes {
 	constructor(config, io, transcoderServers) {
@@ -11,6 +11,7 @@ class RhinoRoutes {
 		this._router = new express.Router();
         this._wsEvents = {};
         this._registerRoutes();
+        this._sessionStore = new SessionStore();
     }
     
     _registerWsEvent(event, handler) {
@@ -54,23 +55,29 @@ class RhinoRoutes {
             console.error(`Unknown event: ${JSON.stringify(json)}`);
             return;
         }
-        const response = await handler(json, ws);
+        let response = await handler(json, ws);
         if (response) {
-            ws.binary(true).compress(true).emit('message', Object.assign(response, {
+            if (typeof(response) !== 'object' || Array.isArray(response)) {
+                response = {
+                    data: response
+                };
+            }
+            const event = Object.assign(response, {
                 event: json.event,
                 eventId: json.eventId
-            }));
+            });
+            ws.binary(true).compress(true).emit('message', event);
         }
     }
 
     newSession(req, res) {
         const sessionId = req.params.sessionId;
-        sessionStore.store(sessionId, req.body);
+        this._sessionStore.store(sessionId, req.body);
         res.send({success: true});
     }
 
     sessionEvent(json) {
-        return sessionStore.get(json.sessionId);
+        return this._sessionStore.getSession(json.sessionId);
     }
 
     loadEvent(json, ws) {
@@ -100,20 +107,20 @@ class RhinoRoutes {
         });
     }
 
-    getPatternKeyEvent(json, ws) {
-
+    getPatternKeyEvent(json) {
+        return this._sessionStore.keys(json.pattern);
     }
 
-    getKeyEvent(json, ws) {
-
+    getKeyEvent(json) {
+        return this._sessionStore.get(json.key);
     }
 
-    updateKeyEvent(json, ws) {
-
+    updateKeyEvent(json) {
+        return this._sessionStore.set(json.key, json.val);
     }
 
-    deleteKeyEvent(json, ws) {
-
+    deleteKeyEvent(json) {
+        return this._sessionStore.del(json.keys);
     }
 
 	toRoutes() {
